@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-dns
+  labels:
+    name: external-dns
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-dns
+  namespace: external-dns
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: external-dns
+rules:
+- apiGroups: [""]
+  resources: ["namespaces"]
+  verbs: ["get","watch","list"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["gateways","httproutes","tlsroutes","tcproutes","udproutes"] 
+  verbs: ["get","watch","list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-dns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-dns
+subjects:
+- kind: ServiceAccount
+  name: external-dns
+  namespace: external-dns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-dns
+  namespace: external-dns
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: external-dns
+  template:
+    metadata:
+      labels:
+        app: external-dns
+    spec:
+      serviceAccountName: external-dns
+      containers:
+      - name: external-dns
+        image: k8s.gcr.io/external-dns/external-dns:v0.10.0
+        envFrom:
+        - secretRef:
+            name: pihole-password
+        args:
+        - --source=gateway-httproute
+        - --source=gateway-tlsroute
+        - --source=gateway-tcproute
+        - --source=gateway-udproute
+        - --registry=noop
+        - --policy=upsert-only
+        - --provider=pihole
+        - --pihole-server=http://pi.hole
+      securityContext:
+        fsGroup: 65534
