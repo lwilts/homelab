@@ -13,4 +13,4 @@ spec:
       mode: Terminate
       certificateRefs:
       - kind: Secret
-        name: wildcard-lab-lkwt-dev
+        name: wildcard-lab-lkwt-dev-tls
