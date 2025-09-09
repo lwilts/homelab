@@ -10,3 +10,5 @@ spec:
   issuerRef:
     name: letsencrypt-wildcard
     kind: ClusterIssuer
+  dependsOn:
+    - name: cert-manager

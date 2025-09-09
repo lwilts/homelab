@@ -1,0 +1,83 @@
+# 1. Install Helm repositories first
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-helm-repos
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/k3s/infra/helm-repositories
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+
+---
+# 2. Install cert-manager CRDs + controller
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-cert-manager
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/k3s/infra/cert-manager
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: infra-helm-repos
+
+---
+# 3. Install cert/clusterissuer once CRDs are ready
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-cert-manager-config
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/k3s/infra/cert-manager-config
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: infra-cert-manager
+
+---
+# 4. ExternalDNS (needs cert-manager working if it uses TLS)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-external-dns
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/k3s/infra/external-dns
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: infra-cert-manager-config
+
+---
+# 5. NGINX Gateway (depends on cert-manager + external-dns)
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-nginx-gateway
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./flux/k3s/infra/nginx-gateway
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: infra-cert-manager-config
+    - name: infra-external-dns
+
