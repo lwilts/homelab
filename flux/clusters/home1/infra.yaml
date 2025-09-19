@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./flux/infra/helm-repositories
+  path: ./flux/infra
   prune: true
   sourceRef:
     kind: GitRepository
@@ -19,7 +19,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./flux/k3s/infra/controllers
+  path: ./flux/infra/controllers
   prune: true
   sourceRef:
     kind: GitRepository

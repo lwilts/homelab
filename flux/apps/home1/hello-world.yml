@@ -55,5 +55,5 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: hello-app
+    - name: hello
       port: 80

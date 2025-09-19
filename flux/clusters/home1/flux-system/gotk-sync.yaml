@@ -20,7 +20,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m0s
-  path: ./flux/k3s/flux-system
+  path: ./flux/clusters/home1
   prune: true
   sourceRef:
     kind: GitRepository
