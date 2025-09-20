@@ -59,6 +59,9 @@ spec:
         envFrom:
         - secretRef:
             name: pihole-password
+        env:
+        - name: EXTERNAL_DNS_PIHOLE_SERVER
+          value: http://pi.hole
         args:
         - --source=gateway-httproute
         - --source=gateway-tlsroute
@@ -67,6 +70,5 @@ spec:
         - --registry=noop
         - --policy=upsert-only
         - --provider=pihole
-        - --pihole-server=http://pi.hole
       securityContext:
         fsGroup: 65534
