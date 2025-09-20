@@ -14,4 +14,4 @@ spec:
         name: nginx-gateway-fabric
   values:
     service:
-      type: NodePort
+      type: LoadBalancer
