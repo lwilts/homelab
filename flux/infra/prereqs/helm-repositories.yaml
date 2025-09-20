@@ -7,14 +7,15 @@ spec:
   interval: 1h
   url: https://charts.jetstack.io
 ---
-apiVersion: source.toolkit.fluxcd.io/v1
+apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
 metadata:
-  name: nginx-stable
-  namespace: flux-system
+  name: nginx-gateway-fabric
+  namespace: nginx-gateway
 spec:
-  interval: 1h
-  url: https://helm.nginx.com/stable
+  interval: 5m0s
+  type: oci
+  url: oci://ghcr.io/nginxinc/charts
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
