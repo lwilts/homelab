@@ -1,0 +1,13 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: nginx-gateway-fabric-standard-crds
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: nginx-gateway-fabric
+  path: "./config/crd/gateway-api/standard"
+  prune: true
+  wait: true
