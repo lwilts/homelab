@@ -75,7 +75,6 @@ data:
     [[inputs.ping]]
       urls = ["8.8.8.8", "192.168.68.1"]
       count = 1
-      ping_timeout = 1.0
       deadline = 10
 ---
 apiVersion: apps/v1
