@@ -12,3 +12,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: nginx-gateway-fabric
+  dependsOn:
+    - name: metallb-system
+      namespace: flux-system
