@@ -37,20 +37,17 @@ spec:
         - sh
         - -c
         - |
-          if [ ! -f /config/configuration.yaml ]; then
-            cat > /config/configuration.yaml << 'EOF'
-          # Basic Home Assistant configuration
-          default_config:
-
-          # HTTP configuration for reverse proxy
-          http:
-            use_x_forwarded_for: true
-            trusted_proxies:
-              - 10.42.0.0/16
-              - 10.43.0.0/16
-              - 127.0.0.1
-              - ::1
-          EOF
+          # Add HTTP proxy configuration if not already present
+          if ! grep -q "use_x_forwarded_for" /config/configuration.yaml 2>/dev/null; then
+            echo "" >> /config/configuration.yaml
+            echo "# HTTP configuration for reverse proxy" >> /config/configuration.yaml
+            echo "http:" >> /config/configuration.yaml
+            echo "  use_x_forwarded_for: true" >> /config/configuration.yaml
+            echo "  trusted_proxies:" >> /config/configuration.yaml
+            echo "    - 10.42.0.0/16" >> /config/configuration.yaml
+            echo "    - 10.43.0.0/16" >> /config/configuration.yaml
+            echo "    - 127.0.0.1" >> /config/configuration.yaml
+            echo "    - ::1" >> /config/configuration.yaml
           fi
         volumeMounts:
         - name: config
