@@ -270,6 +270,14 @@ spec:
         precision: ""
         hostname: "$HOSTNAME"
         omit_hostname: false
+      outputs:
+        - http:
+            url: "http://victoriametrics-victoria-metrics-single-server.monitoring.svc.cluster.local:8428/api/v1/write"
+            data_format: "prometheusremotewrite"
+            headers:
+              Content-Type: "application/x-protobuf"
+              Content-Encoding: "snappy"
+              X-Prometheus-Remote-Write-Version: "0.1.0"
 
     override_config:
       toml: |+
