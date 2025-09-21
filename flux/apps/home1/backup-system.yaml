@@ -1,0 +1,230 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backup-system
+---
+# NFS PV for backup storage
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: backup-storage-pv
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-backup
+  nfs:
+    server: nas.lab
+    path: /mnt/red6/backups/k3s
+---
+# PVC for backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage-pvc
+  namespace: backup-system
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-backup
+  resources:
+    requests:
+      storage: 100Gi
+  volumeName: backup-storage-pv
+---
+# Backup script ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-scripts
+  namespace: backup-system
+data:
+  backup.sh: |
+    #!/bin/bash
+    set -e
+
+    BACKUP_DIR="/backups"
+    DATE=$(date +%Y%m%d-%H%M%S)
+    RETENTION_DAYS=30
+
+    echo "Starting backup at $(date)"
+
+    # Create dated backup directory
+    mkdir -p "$BACKUP_DIR/$DATE"
+
+    # Backup Home Assistant
+    echo "Backing up Home Assistant..."
+    if [ -d "/source/home-assistant" ]; then
+        tar -czf "$BACKUP_DIR/$DATE/home-assistant-$DATE.tar.gz" -C /source home-assistant/
+        echo "Home Assistant backup completed: home-assistant-$DATE.tar.gz"
+    else
+        echo "Warning: Home Assistant data not found"
+    fi
+
+    # Backup Jellyfin
+    echo "Backing up Jellyfin..."
+    if [ -d "/source/jellyfin" ]; then
+        tar -czf "$BACKUP_DIR/$DATE/jellyfin-$DATE.tar.gz" -C /source jellyfin/
+        echo "Jellyfin backup completed: jellyfin-$DATE.tar.gz"
+    else
+        echo "Warning: Jellyfin data not found"
+    fi
+
+    # Create backup manifest
+    cat > "$BACKUP_DIR/$DATE/manifest.yaml" << EOF
+    backup_date: $DATE
+    created_at: $(date -Iseconds)
+    cluster: home1
+    namespace: backup-system
+    contents:
+      - name: home-assistant
+        file: home-assistant-$DATE.tar.gz
+        source: /var/lib/rancher/k3s/storage/home-assistant-config-pvc
+      - name: jellyfin
+        file: jellyfin-$DATE.tar.gz
+        source: /var/lib/rancher/k3s/storage/jellyfin-config-pvc
+    EOF
+
+    # Create latest symlink
+    ln -sfn "$DATE" "$BACKUP_DIR/latest"
+
+    # Cleanup old backups
+    echo "Cleaning up backups older than $RETENTION_DAYS days..."
+    find "$BACKUP_DIR" -maxdepth 1 -type d -name "20*" -mtime +$RETENTION_DAYS -exec rm -rf {} \;
+
+    echo "Backup completed successfully at $(date)"
+    echo "Backup location: $BACKUP_DIR/$DATE"
+
+  restore.sh: |
+    #!/bin/bash
+    set -e
+
+    BACKUP_DIR="/backups"
+    RESTORE_DATE="${1:-latest}"
+
+    if [ "$RESTORE_DATE" = "latest" ]; then
+        RESTORE_PATH="$BACKUP_DIR/latest"
+    else
+        RESTORE_PATH="$BACKUP_DIR/$RESTORE_DATE"
+    fi
+
+    if [ ! -d "$RESTORE_PATH" ]; then
+        echo "Error: Backup $RESTORE_DATE not found at $RESTORE_PATH"
+        echo "Available backups:"
+        ls -la "$BACKUP_DIR/" | grep "^d" | grep "20"
+        exit 1
+    fi
+
+    echo "Starting restore from $RESTORE_PATH at $(date)"
+
+    # Restore Home Assistant
+    if [ -f "$RESTORE_PATH/home-assistant-"*.tar.gz ]; then
+        echo "Restoring Home Assistant..."
+        mkdir -p /target/home-assistant
+        tar -xzf "$RESTORE_PATH"/home-assistant-*.tar.gz -C /target/
+        echo "Home Assistant restored"
+    fi
+
+    # Restore Jellyfin
+    if [ -f "$RESTORE_PATH/jellyfin-"*.tar.gz ]; then
+        echo "Restoring Jellyfin..."
+        mkdir -p /target/jellyfin
+        tar -xzf "$RESTORE_PATH"/jellyfin-*.tar.gz -C /target/
+        echo "Jellyfin restored"
+    fi
+
+    echo "Restore completed at $(date)"
+    echo "Restored from: $RESTORE_PATH"
+---
+# Daily backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-backup
+  namespace: backup-system
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: backup
+            image: alpine:3.18
+            command: ["/bin/sh", "/scripts/backup.sh"]
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+            - name: source-data
+              mountPath: /source
+              readOnly: true
+            - name: backup-scripts
+              mountPath: /scripts
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage-pvc
+          - name: source-data
+            hostPath:
+              path: /var/lib/rancher/k3s/storage
+          - name: backup-scripts
+            configMap:
+              name: backup-scripts
+              defaultMode: 0755
+---
+# Manual backup Job template (disabled by default)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: manual-backup-template
+  namespace: backup-system
+  annotations:
+    # This is a template - copy and rename to trigger manual backup
+    template: "true"
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: backup
+        image: alpine:3.18
+        command: ["/bin/sh", "/scripts/backup.sh"]
+        volumeMounts:
+        - name: backup-storage
+          mountPath: /backups
+        - name: source-data
+          mountPath: /source
+          readOnly: true
+        - name: backup-scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: backup-storage-pvc
+      - name: source-data
+        hostPath:
+          path: /var/lib/rancher/k3s/storage
+      - name: backup-scripts
+        configMap:
+          name: backup-scripts
+          defaultMode: 0755
