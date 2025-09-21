@@ -1,0 +1,370 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: telegraf
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: influxdata
+  namespace: telegraf
+spec:
+  interval: 24h
+  url: https://helm.influxdata.com/
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+  namespace: telegraf
+data:
+  telegraf.conf: |
+    # Global tags
+    [global_tags]
+      environment = "homelab"
+      cluster = "home1"
+
+    # Agent configuration
+    [agent]
+      interval = "10s"
+      round_interval = true
+      metric_batch_size = 1000
+      metric_buffer_limit = 10000
+      collection_jitter = "0s"
+      flush_interval = "10s"
+      flush_jitter = "0s"
+      precision = ""
+      hostname = ""
+      omit_hostname = false
+
+    # OUTPUT PLUGINS
+    [[outputs.http]]
+      url = "http://victoriametrics-victoria-metrics-single-server.monitoring.svc.cluster.local:8428/api/v1/write"
+      data_format = "prometheusremotewrite"
+      [outputs.http.headers]
+        Content-Type = "application/x-protobuf"
+        Content-Encoding = "snappy"
+        X-Prometheus-Remote-Write-Version = "0.1.0"
+
+    # INPUT PLUGINS
+
+    # System metrics
+    [[inputs.cpu]]
+      percpu = true
+      totalcpu = true
+      collect_cpu_time = false
+      report_active = false
+
+    [[inputs.disk]]
+      ignore_fs = ["tmpfs", "devtmpfs", "devfs", "iso9660", "overlay", "aufs", "squashfs"]
+
+    [[inputs.diskio]]
+
+    [[inputs.kernel]]
+
+    [[inputs.mem]]
+
+    [[inputs.processes]]
+
+    [[inputs.swap]]
+
+    [[inputs.system]]
+
+    [[inputs.net]]
+
+    [[inputs.netstat]]
+
+    # Kubernetes metrics
+    [[inputs.kubernetes]]
+      url = "https://kubernetes.default.svc.cluster.local:443"
+      bearer_token_string = "$KUBERNETES_TOKEN"
+      insecure_skip_verify = true
+
+    # Docker metrics
+    [[inputs.docker]]
+      endpoint = "unix:///var/run/docker.sock"
+      gather_services = false
+      container_names = []
+      source_tag = false
+      container_name_include = []
+      container_name_exclude = []
+      timeout = "5s"
+      perdevice = true
+      total = false
+
+    # HTTP response checks for services
+    [[inputs.http_response]]
+      urls = [
+        "http://jellyfin.jellyfin.svc.cluster.local:8096/health",
+        "http://home-assistant.home-assistant.svc.cluster.local:8123/api/",
+        "http://grafana.monitoring.svc.cluster.local/api/health",
+        "http://speedtest-tracker.monitoring.svc.cluster.local/"
+      ]
+      response_timeout = "5s"
+      method = "GET"
+      follow_redirects = false
+
+    # DNS query response times
+    [[inputs.dns_query]]
+      servers = ["8.8.8.8", "1.1.1.1"]
+      domains = ["google.com", "github.com", "lab.lkwt.dev"]
+      record_type = "A"
+      port = 53
+      timeout = 2
+
+    # Ping connectivity tests
+    [[inputs.ping]]
+      urls = ["8.8.8.8", "1.1.1.1", "192.168.68.1"]
+      count = 1
+      ping_timeout = 1.0
+      deadline = 10
+
+    # Internal temperature monitoring (if available)
+    [[inputs.temp]]
+
+    # Load average
+    [[inputs.system]]
+
+    # File stats for important directories
+    [[inputs.filestat]]
+      files = ["/var/lib/rancher/k3s/storage/**"]
+
+    # Log parsing for errors
+    [[inputs.tail]]
+      files = ["/var/log/messages", "/var/log/syslog"]
+      from_beginning = false
+      pipe = false
+      watch_method = "inotify"
+      data_format = "grok"
+      grok_patterns = ["%{SYSLOGTIMESTAMP:timestamp} %{WORD:severity} %{GREEDYDATA:message}"]
+      grok_custom_patterns = ""
+
+    # Process monitoring
+    [[inputs.procstat]]
+      pattern = "k3s"
+
+    [[inputs.procstat]]
+      pattern = "containerd"
+
+    # Certificate expiry monitoring
+    [[inputs.x509_cert]]
+      sources = ["https://homeassistant.lab.lkwt.dev", "https://jellyfin.lab.lkwt.dev", "https://grafana.lab.lkwt.dev"]
+      timeout = "5s"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: telegraf
+  namespace: telegraf
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: telegraf
+rules:
+- apiGroups: [""]
+  resources:
+    - nodes
+    - nodes/proxy
+    - nodes/metrics
+    - services
+    - endpoints
+    - pods
+    - ingresses
+    - configmaps
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  - apps
+  resources:
+    - daemonsets
+    - deployments
+    - replicasets
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: telegraf
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: telegraf
+subjects:
+- kind: ServiceAccount
+  name: telegraf
+  namespace: telegraf
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: telegraf
+  namespace: telegraf
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: telegraf
+      version: "1.8.49"
+      sourceRef:
+        kind: HelmRepository
+        name: influxdata
+        namespace: telegraf
+  values:
+    replicaCount: 1
+
+    image:
+      repo: "telegraf"
+      tag: "1.28-alpine"
+      pullPolicy: IfNotPresent
+
+    podAnnotations: {}
+
+    podLabels: {}
+
+    imagePullSecrets: []
+
+    serviceAccount:
+      create: false
+      name: telegraf
+
+    podSecurityContext: {}
+
+    securityContext: {}
+
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+    nodeSelector: {}
+
+    tolerations: []
+
+    affinity: {}
+
+    env:
+    - name: KUBERNETES_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: telegraf-token
+          key: token
+          optional: true
+
+    envFromSecret: {}
+
+    config:
+      agent:
+        interval: "10s"
+        round_interval: true
+        metric_batch_size: 1000
+        metric_buffer_limit: 10000
+        collection_jitter: "0s"
+        flush_interval: "10s"
+        flush_jitter: "0s"
+        precision: ""
+        hostname: "$HOSTNAME"
+        omit_hostname: false
+
+    override_config:
+      toml: |+
+        # Global tags
+        [global_tags]
+          environment = "homelab"
+          cluster = "home1"
+
+        # Agent configuration
+        [agent]
+          interval = "10s"
+          round_interval = true
+          metric_batch_size = 1000
+          metric_buffer_limit = 10000
+          collection_jitter = "0s"
+          flush_interval = "10s"
+          flush_jitter = "0s"
+          precision = ""
+          hostname = ""
+          omit_hostname = false
+
+        # OUTPUT PLUGINS
+        [[outputs.http]]
+          url = "http://victoriametrics-victoria-metrics-single-server.monitoring.svc.cluster.local:8428/api/v1/write"
+          data_format = "prometheusremotewrite"
+          [outputs.http.headers]
+            Content-Type = "application/x-protobuf"
+            Content-Encoding = "snappy"
+            X-Prometheus-Remote-Write-Version = "0.1.0"
+
+        # System metrics
+        [[inputs.cpu]]
+          percpu = true
+          totalcpu = true
+
+        [[inputs.disk]]
+          ignore_fs = ["tmpfs", "devtmpfs", "devfs", "iso9660", "overlay", "aufs", "squashfs"]
+
+        [[inputs.diskio]]
+
+        [[inputs.mem]]
+
+        [[inputs.processes]]
+
+        [[inputs.system]]
+
+        [[inputs.net]]
+
+        # HTTP response checks
+        [[inputs.http_response]]
+          urls = [
+            "http://jellyfin.jellyfin.svc.cluster.local:8096/health",
+            "http://home-assistant.home-assistant.svc.cluster.local:8123/api/",
+            "http://grafana.monitoring.svc.cluster.local/api/health"
+          ]
+          response_timeout = "5s"
+          method = "GET"
+
+        # DNS monitoring
+        [[inputs.dns_query]]
+          servers = ["8.8.8.8", "1.1.1.1"]
+          domains = ["google.com", "lab.lkwt.dev"]
+          record_type = "A"
+
+        # Ping tests
+        [[inputs.ping]]
+          urls = ["8.8.8.8", "192.168.68.1"]
+          count = 1
+
+    volumes:
+    - name: docker-socket
+      hostPath:
+        path: /var/run/docker.sock
+    - name: proc
+      hostPath:
+        path: /proc
+    - name: sys
+      hostPath:
+        path: /sys
+
+    mountPoints:
+    - name: docker-socket
+      mountPath: /var/run/docker.sock
+      readOnly: true
+    - name: proc
+      mountPath: /host/proc
+      readOnly: true
+    - name: sys
+      mountPath: /host/sys
+      readOnly: true
+
+    hostNetwork: false
+    hostPID: false
+
+    service:
+      enabled: true
+      type: ClusterIP
+      annotations: {}
