@@ -111,28 +111,17 @@ spec:
             editable: true
             options:
               path: /var/lib/grafana/dashboards/default
-          - name: 'homelab'
-            orgId: 1
-            folder: 'Homelab'
-            type: file
-            disableDeletion: false
-            editable: true
-            options:
-              path: /var/lib/grafana/dashboards/homelab
     dashboards:
       default:
         node-exporter:
           gnetId: 1860  # Node Exporter Full dashboard
           revision: 37
           datasource: VictoriaMetrics
-      homelab:
-        homelab-overview:
-          file: homelab-dashboard.json
     sidecar:
       dashboards:
         enabled: true
         label: grafana_dashboard
-        folder: /var/lib/grafana/dashboards/homelab
+        folder: /var/lib/grafana/dashboards/default
     service:
       type: ClusterIP
       port: 80

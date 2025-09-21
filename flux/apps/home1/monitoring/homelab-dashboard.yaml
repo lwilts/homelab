@@ -8,9 +8,8 @@ metadata:
 data:
   homelab-overview.json: |
     {
-      "dashboard": {
-        "id": null,
-        "title": "Homelab Overview",
+      "id": null,
+      "title": "Homelab Overview",
         "tags": ["homelab", "overview"],
         "style": "dark",
         "timezone": "browser",
@@ -200,5 +199,4 @@ data:
             "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
           }
         ]
-      }
     }
