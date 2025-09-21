@@ -12,3 +12,10 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: nginx-gateway-fabric
+  values:
+    service:
+      ports:
+      - name: https
+        port: 443
+        protocol: TCP
+        targetPort: 443
