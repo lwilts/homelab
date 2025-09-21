@@ -39,6 +39,12 @@ spec:
         env:
         - name: TZ
           value: "Europe/London"
+        - name: HASS_HTTP_TRUSTED_PROXY_1
+          value: "10.42.0.0/16"
+        - name: HASS_HTTP_TRUSTED_PROXY_2
+          value: "10.43.0.0/16"
+        - name: HASS_HTTP_USE_X_FORWARDED_FOR
+          value: "true"
         volumeMounts:
         - name: config
           mountPath: /config
