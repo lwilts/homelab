@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nginx-gateway
+---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -5,6 +10,9 @@ metadata:
   namespace: nginx-gateway
 spec:
   interval: 10m
+  dependsOn:
+    - name: cert-manager
+      namespace: cert-manager
   chart:
     spec:
       chart: nginx-gateway-fabric
@@ -12,6 +20,7 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: nginx-gateway-fabric
+        namespace: flux-system
   values:
     service:
       ports:
