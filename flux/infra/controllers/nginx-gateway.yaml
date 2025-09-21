@@ -8,17 +8,7 @@ spec:
   chart:
     spec:
       chart: nginx-gateway-fabric
-      version: "1.2.0"
+      version: "2.1.1"
       sourceRef:
         kind: HelmRepository
         name: nginx-gateway-fabric
-  values:
-    service:
-      type: LoadBalancer
-      ports:
-        - name: http
-          port: 80
-          targetPort: 80
-        - name: https
-          port: 443
-          targetPort: 443
