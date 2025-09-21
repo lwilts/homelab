@@ -1,181 +1,76 @@
-# Homelab Infrastructure
+# Homelab K3s Setup
 
-This repository contains the GitOps configuration for my homelab infrastructure using Flux CD.
+Personal homelab running on single K3s node with GitOps via Flux.
 
-## Overview
+## Stack
+- **K3s** - Lightweight Kubernetes
+- **Flux CD** - GitOps deployment
+- **MetalLB** - LoadBalancer for bare metal (192.168.68.20-30)
+- **nginx-gateway-fabric** - Gateway API implementation
+- **cert-manager** - Let's Encrypt wildcard certs for `*.lab.lkwt.dev`
+- **Cloudflare DNS** - DNS-01 challenge for cert validation
 
-This homelab uses:
-- **Kubernetes**: Container orchestration platform
-- **Flux CD**: GitOps continuous delivery for Kubernetes
-- **MetalLB**: Load balancer implementation for bare metal Kubernetes clusters
-- **nginx-gateway-fabric**: Kubernetes Gateway API implementation
-- **cert-manager**: Automatic TLS certificate management
+## Apps
+- **Jellyfin** - Media server (NFS media from nas.lab)
+- **Home Assistant** - Home automation
+- **Hello** - Test nginx app
+- **Dashboard** - K8s web UI
 
-## Architecture
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Applications   │    │  Infrastructure │    │  Prerequisites  │
-│                 │    │                 │    │                 │
-│ • Hello App     │◄───│ • nginx-gateway │◄───│ • Helm Repos    │
-│ • Dashboard     │    │ • cert-manager  │    │ • CRDs          │
-└─────────────────┘    │ • MetalLB       │    └─────────────────┘
-                       └─────────────────┘
-```
-
-## Directory Structure
-
+## Structure
 ```
 flux/
-├── clusters/home1/          # Cluster-specific configuration
-│   ├── flux-system/         # Flux CD bootstrap configuration
-│   ├── infra.yaml          # Infrastructure Kustomizations
-│   └── apps.yaml           # Application Kustomizations
-├── infra/                  # Infrastructure components
-│   ├── prereqs/            # Prerequisites (Helm repos, CRDs)
-│   ├── controllers/        # Infrastructure controllers
-│   └── configs/            # Infrastructure configurations
-└── apps/home1/             # Applications for home1 cluster
-    ├── hello.yml           # Sample nginx application
-    └── dashboard.yaml      # Kubernetes dashboard
+├── clusters/home1/     # Bootstrap config
+├── infra/              # Infrastructure (prereqs → controllers → configs)
+└── apps/home1/         # Applications
 ```
 
-## Bootstrap Process
+## Key Challenges & Solutions
 
-The infrastructure is deployed in a specific order to handle dependencies:
+### Gateway API Issues
+**Problem**: nginx-gateway-fabric needed specific GatewayClass and dependency handling.
+**Solution**:
+- Removed invalid HelmRelease dependency on metallb-system (it's a Kustomization)
+- Fixed chart version from 2.1.1 to 1.2.0 (2.1.1 doesn't exist in OCI registry)
 
-1. **Prerequisites** (`infra-prereqs`): Helm repositories and CRDs
-2. **Controllers** (`infra-controllers`): Core infrastructure components
-3. **Configurations** (`infra-configs`): Infrastructure settings and policies
-4. **Applications** (`apps`): User applications
-
-## Components
-
-### MetalLB
-- Provides LoadBalancer services on bare metal
-- Configured with Layer 2 mode
-- IP pool: `192.168.68.20-192.168.68.30`
-
-### nginx-gateway-fabric
-- Implements Kubernetes Gateway API
-- Provides ingress capabilities with HTTPS termination
-- LoadBalancer IP: `192.168.68.22`
-
-### cert-manager
-- Automatic TLS certificate provisioning
-- Let's Encrypt integration for wildcard certificates
-- Certificates for `*.lab.lkwt.dev`
-
-### Gateway Configuration
-- HTTPS-only listener on port 443
-- TLS termination with wildcard certificates
-- HTTPRoutes accepted from all namespaces
-
-## Deployment
-
-### Initial Setup
-
-1. Bootstrap Flux on your cluster:
-```bash
-flux bootstrap github \
-  --owner=<your-github-username> \
-  --repository=homelab \
-  --branch=main \
-  --path=./flux/clusters/home1
+### Home Assistant Proxy Errors
+**Problem**: "reverse proxy not set-up" errors behind nginx-gateway.
+**Solution**: Init container adds HTTP config to configuration.yaml:
+```yaml
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.42.0.0/16  # Pod network
+    - 10.43.0.0/16  # Service network
 ```
 
-2. Flux will automatically deploy all components in the correct order.
+### MetalLB IP Changes
+**Problem**: MetalLB kept reassigning IPs during config changes.
+**Solution**: Specify interface in metallb config to avoid conflicts.
 
-### Monitoring Deployment
+### NFS Permissions
+**Problem**: Alpine backup containers couldn't write to NFS share.
+**Solution**: Configure maproot user/group on TrueNAS NFS export.
 
-```bash
-# Check all Flux resources
-flux get all
-
-# Check specific Kustomizations
-flux get kustomizations
-
-# Check Helm releases
-flux get helmreleases -A
-```
-
-### Troubleshooting
+## Useful Commands
 
 ```bash
-# Force reconciliation
+# Force reconcile everything
 flux reconcile source git flux-system
-flux reconcile kustomization infra-prereqs
-flux reconcile kustomization infra-controllers
-flux reconcile kustomization infra-configs
-flux reconcile kustomization apps
+flux reconcile kustomization infra-prereqs infra-controllers infra-configs apps
 
-# Check resource status
-kubectl get gateway -A
-kubectl get httproute -A
-kubectl get certificates -A
+# Check application status
+kubectl get httproute,gateway,certificates -A
+
+# Debug networking
+kubectl run debug --image=alpine:3.18 --rm -it -- sh
+
+# Manual backup
+kubectl create job backup-$(date +%Y%m%d) --from=cronjob/daily-backup -n backup-system
 ```
 
-## Accessing Applications
-
-### Hello App
-- URL: `https://hello.lab.lkwt.dev`
-- Simple nginx welcome page for testing
-
-### Kubernetes Dashboard
-- URL: `https://dashboard.lab.lkwt.dev`
-- Web-based Kubernetes management interface
-
-## Development
-
-### Adding New Applications
-
-1. Create application manifests in `flux/apps/home1/`
-2. Include HTTPRoute for ingress access
-3. Commit and push - Flux will deploy automatically
-
-### Modifying Infrastructure
-
-1. Update configurations in `flux/infra/`
-2. Test changes in a development environment first
-3. Commit and push for automatic deployment
-
-## DNS Configuration
-
-This setup uses a wildcard DNS record for simplicity. Ensure your DNS resolver has:
-
-```bash
-# Wildcard DNS entry pointing to MetalLB IP
-*.lab.lkwt.dev A 192.168.68.22
-```
-
-All applications will be accessible via `https://<app-name>.lab.lkwt.dev`
-
-## Security
-
-- All HTTP traffic is redirected to HTTPS
-- TLS certificates are automatically renewed
-- No HTTP listeners exposed on LoadBalancer
-- Applications isolated in separate namespaces
-
-## Maintenance
-
-### Certificate Renewal
-Certificates are automatically renewed by cert-manager. Monitor with:
-```bash
-kubectl get certificates -A
-kubectl describe certificate -n nginx-gateway wildcard-lab-lkwt-dev
-```
-
-### Updates
-Component versions are pinned in the Helm charts. Update by modifying version numbers in the HelmRelease manifests.
-
-## Contributing
-
-1. Create feature branch
-2. Make changes
-3. Test in development environment
-4. Submit pull request
-
-## License
-
-This homelab configuration is for personal use and learning purposes.
+## Notes
+- Daily backups to nas.lab:/mnt/red6/k8s-backup (Home Assistant + Jellyfin configs)
+- K3s storage at /var/lib/rancher/k3s/storage with UUID-based PVC names
+- Wildcard DNS: `*.lab.lkwt.dev → 192.168.68.22`
+- All traffic HTTPS-only, certs auto-renewed
+- hostNetwork needed for Home Assistant device discovery

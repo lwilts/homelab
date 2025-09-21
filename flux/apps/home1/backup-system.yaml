@@ -56,18 +56,22 @@ data:
 
     # Backup Home Assistant
     echo "Backing up Home Assistant..."
-    if [ -d "/source/home-assistant" ]; then
-        tar -czf "$BACKUP_DIR/$DATE/home-assistant-$DATE.tar.gz" -C /source home-assistant/
+    HA_DIR=$(find /source -name "*home-assistant*" -type d | head -1)
+    if [ -n "$HA_DIR" ] && [ -d "$HA_DIR" ]; then
+        tar -czf "$BACKUP_DIR/$DATE/home-assistant-$DATE.tar.gz" -C "$HA_DIR" .
         echo "Home Assistant backup completed: home-assistant-$DATE.tar.gz"
+        echo "Backed up from: $HA_DIR"
     else
         echo "Warning: Home Assistant data not found"
     fi
 
     # Backup Jellyfin
     echo "Backing up Jellyfin..."
-    if [ -d "/source/jellyfin" ]; then
-        tar -czf "$BACKUP_DIR/$DATE/jellyfin-$DATE.tar.gz" -C /source jellyfin/
+    JF_DIR=$(find /source -name "*jellyfin*" -type d | head -1)
+    if [ -n "$JF_DIR" ] && [ -d "$JF_DIR" ]; then
+        tar -czf "$BACKUP_DIR/$DATE/jellyfin-$DATE.tar.gz" -C "$JF_DIR" .
         echo "Jellyfin backup completed: jellyfin-$DATE.tar.gz"
+        echo "Backed up from: $JF_DIR"
     else
         echo "Warning: Jellyfin data not found"
     fi
@@ -120,19 +124,27 @@ data:
     echo "Starting restore from $RESTORE_PATH at $(date)"
 
     # Restore Home Assistant
-    if [ -f "$RESTORE_PATH/home-assistant-"*.tar.gz ]; then
+    if ls "$RESTORE_PATH"/home-assistant-*.tar.gz 1> /dev/null 2>&1; then
         echo "Restoring Home Assistant..."
-        mkdir -p /target/home-assistant
-        tar -xzf "$RESTORE_PATH"/home-assistant-*.tar.gz -C /target/
-        echo "Home Assistant restored"
+        HA_TARGET_DIR=$(find /target -name "*home-assistant*" -type d | head -1)
+        if [ -n "$HA_TARGET_DIR" ] && [ -d "$HA_TARGET_DIR" ]; then
+            tar -xzf "$RESTORE_PATH"/home-assistant-*.tar.gz -C "$HA_TARGET_DIR"
+            echo "Home Assistant restored to: $HA_TARGET_DIR"
+        else
+            echo "Warning: Home Assistant target directory not found"
+        fi
     fi
 
     # Restore Jellyfin
-    if [ -f "$RESTORE_PATH/jellyfin-"*.tar.gz ]; then
+    if ls "$RESTORE_PATH"/jellyfin-*.tar.gz 1> /dev/null 2>&1; then
         echo "Restoring Jellyfin..."
-        mkdir -p /target/jellyfin
-        tar -xzf "$RESTORE_PATH"/jellyfin-*.tar.gz -C /target/
-        echo "Jellyfin restored"
+        JF_TARGET_DIR=$(find /target -name "*jellyfin*" -type d | head -1)
+        if [ -n "$JF_TARGET_DIR" ] && [ -d "$JF_TARGET_DIR" ]; then
+            tar -xzf "$RESTORE_PATH"/jellyfin-*.tar.gz -C "$JF_TARGET_DIR"
+            echo "Jellyfin restored to: $JF_TARGET_DIR"
+        else
+            echo "Warning: Jellyfin target directory not found"
+        fi
     fi
 
     echo "Restore completed at $(date)"
