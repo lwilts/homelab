@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - monitoring.yaml
   - telegraf.yaml
+  - homelab-dashboard.yaml

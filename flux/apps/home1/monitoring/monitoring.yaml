@@ -111,12 +111,28 @@ spec:
             editable: true
             options:
               path: /var/lib/grafana/dashboards/default
+          - name: 'homelab'
+            orgId: 1
+            folder: 'Homelab'
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/homelab
     dashboards:
       default:
-        homelab-overview:
+        node-exporter:
           gnetId: 1860  # Node Exporter Full dashboard
           revision: 37
           datasource: VictoriaMetrics
+      homelab:
+        homelab-overview:
+          file: homelab-dashboard.json
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        folder: /var/lib/grafana/dashboards/homelab
     service:
       type: ClusterIP
       port: 80
@@ -267,7 +283,10 @@ spec:
         - name: PGID
           value: "1000"
         - name: APP_KEY
-          value: base64:$(openssl rand -base64 32)
+          valueFrom:
+            secretKeyRef:
+              name: speedtest-tracker-secret
+              key: app-key
         - name: DB_CONNECTION
           value: sqlite
         - name: SPEEDTEST_SCHEDULE

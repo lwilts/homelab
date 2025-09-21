@@ -1,0 +1,204 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  homelab-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Homelab Overview",
+        "tags": ["homelab", "overview"],
+        "style": "dark",
+        "timezone": "browser",
+        "refresh": "30s",
+        "time": {
+          "from": "now-6h",
+          "to": "now"
+        },
+        "panels": [
+          {
+            "id": 1,
+            "title": "Service Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "up{job=\"blackbox\"} == 1",
+                "legendFormat": "{{instance}}",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "green", "value": 1}
+                  ]
+                },
+                "mappings": [
+                  {"type": "value", "value": "0", "text": "DOWN"},
+                  {"type": "value", "value": "1", "text": "UP"}
+                ]
+              }
+            },
+            "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "System Resources",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "100 - (avg(irate(cpu_usage_idle{cpu=\"cpu-total\"}[5m])) * 100)",
+                "legendFormat": "CPU Usage %",
+                "refId": "A"
+              },
+              {
+                "expr": "(1 - (mem_available / mem_total)) * 100",
+                "legendFormat": "Memory Usage %",
+                "refId": "B"
+              },
+              {
+                "expr": "(1 - (disk_free{path=\"/\"} / disk_total{path=\"/\"})) * 100",
+                "legendFormat": "Disk Usage %",
+                "refId": "C"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "palette-classic"},
+                "unit": "percent",
+                "max": 100,
+                "min": 0
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+          },
+          {
+            "id": 3,
+            "title": "Network Speed",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "speedtest_download_mbps",
+                "legendFormat": "Download Mbps",
+                "refId": "A"
+              },
+              {
+                "expr": "speedtest_upload_mbps",
+                "legendFormat": "Upload Mbps",
+                "refId": "B"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "palette-classic"},
+                "unit": "Mbps"
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+          },
+          {
+            "id": 4,
+            "title": "Service Response Times",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "http_response_response_time",
+                "legendFormat": "{{instance}}",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "palette-classic"},
+                "unit": "ms"
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+          },
+          {
+            "id": 5,
+            "title": "Pod Status",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "kube_pod_status_phase{phase=\"Running\"}",
+                "legendFormat": "{{namespace}}/{{pod}}",
+                "refId": "A"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {
+                  "mode": "thresholds"
+                },
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "green", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+          },
+          {
+            "id": 6,
+            "title": "Storage Usage",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "disk_used_percent{path=\"/var/lib/rancher/k3s/storage\"}",
+                "legendFormat": "K3s Storage",
+                "refId": "A"
+              },
+              {
+                "expr": "disk_used_percent{path=\"/\"}",
+                "legendFormat": "Root Filesystem",
+                "refId": "B"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "palette-classic"},
+                "unit": "percent",
+                "max": 100
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+          },
+          {
+            "id": 7,
+            "title": "Network Traffic",
+            "type": "timeseries",
+            "targets": [
+              {
+                "expr": "irate(net_bytes_recv[5m]) * 8",
+                "legendFormat": "Inbound",
+                "refId": "A"
+              },
+              {
+                "expr": "irate(net_bytes_sent[5m]) * 8",
+                "legendFormat": "Outbound",
+                "refId": "B"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "palette-classic"},
+                "unit": "bps"
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+          }
+        ]
+      }
+    }
