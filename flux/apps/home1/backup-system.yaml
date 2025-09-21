@@ -17,7 +17,7 @@ spec:
   storageClassName: nfs-backup
   nfs:
     server: nas.lab
-    path: /mnt/red6/backups/k3s
+    path: /mnt/red6/k8s-backup
 ---
 # PVC for backup storage
 apiVersion: v1

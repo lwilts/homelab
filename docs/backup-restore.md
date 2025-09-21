@@ -3,7 +3,7 @@
 ## Overview
 Automated daily backups of Home Assistant and Jellyfin configurations to NAS storage.
 
-**Backup Location**: `nas.lab:/mnt/red6/backups/k3s`
+**Backup Location**: `nas.lab:/mnt/red6/k8s-backup`
 **Schedule**: Daily at 2:00 AM
 **Retention**: 30 days
 
@@ -14,7 +14,7 @@ Automated daily backups of Home Assistant and Jellyfin configurations to NAS sto
 
 ## Backup Structure
 ```
-/mnt/red6/backups/k3s/
+/mnt/red6/k8s-backup/
 ├── 20250921-020000/
 │   ├── home-assistant-20250921-020000.tar.gz
 │   ├── jellyfin-20250921-020000.tar.gz
@@ -222,7 +222,7 @@ kubectl create job test-backup-$(date +%Y%m%d) --from=cronjob/daily-backup -n ba
 ```bash
 # Test NFS connectivity from cluster
 kubectl run nfs-test --image=alpine:3.18 --rm -it -- sh
-# Inside pod: mount -t nfs nas.lab:/mnt/red6/backups/k3s /mnt
+# Inside pod: mount -t nfs nas.lab:/mnt/red6/k8s-backup /mnt
 
 # Check NFS server exports
 showmount -e nas.lab
