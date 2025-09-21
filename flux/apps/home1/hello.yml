@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: hello-world
+  name: hello
 ---  
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello
-  namespace: hello-world
+  namespace: hello
 spec:
   replicas: 1
   selector:
@@ -28,7 +28,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hello
-  namespace: hello-world
+  namespace: hello
 spec:
   selector:
     app: hello
@@ -41,8 +41,8 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: hello-world
-  namespace: hello-world
+  name: hello
+  namespace: hello
 spec:
   parentRefs:
   - name: lab-gateway
