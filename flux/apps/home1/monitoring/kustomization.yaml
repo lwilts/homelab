@@ -5,3 +5,4 @@ resources:
   - monitoring.yaml
   - telegraf-custom.yaml
   - homelab-dashboard.yaml
+  - kube-state-metrics.yaml

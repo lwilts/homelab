@@ -86,6 +86,9 @@ spec:
       existingSecret: grafana-admin
       userKey: admin-user
       passwordKey: admin-password
+    grafana.ini:
+      dashboards:
+        default_home_dashboard_path: /var/lib/grafana/dashboards/default/homelab-overview.json
     persistence:
       enabled: true
       size: 5Gi
