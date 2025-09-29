@@ -64,6 +64,8 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /config
+        - name: zigbee-dongle
+          mountPath: /dev/ttyUSB0
         resources:
           requests:
             memory: "512Mi"
@@ -78,7 +80,7 @@ spec:
             path: /
             port: 8123
           initialDelaySeconds: 60
-          periodSeconds: 30
+          periodmeClaim:Seconds: 30
           timeoutSeconds: 10
         readinessProbe:
           httpGet:
@@ -91,6 +93,10 @@ spec:
       - name: config
         persistentVolumeClaim:
           claimName: home-assistant-config-pvc
+      - name: zigbee-dongle
+        hostPath:
+          path: /dev/ttyUSB0
+          type: CharDevice
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
 ---
