@@ -114,22 +114,9 @@ spec:
     - protocol: TCP
       port: 8123
       targetPort: 8123
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: home-assistant-hue
-  namespace: home-assistant
-  annotations:
-    metallb.universe.tf/loadBalancerIPs: 192.168.68.22
-spec:
-  selector:
-    app: home-assistant
-  ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-  type: LoadBalancer
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -150,3 +137,24 @@ spec:
     backendRefs:
     - name: home-assistant
       port: 8123
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: home-assistant-hue
+  namespace: home-assistant
+spec:
+  parentRefs:
+  - name: lab-gateway
+    namespace: nginx-gateway
+    sectionName: http
+  hostnames:
+  - "homeassistant.lab.lkwt.dev"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: home-assistant
+      port: 80
