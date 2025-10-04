@@ -129,6 +129,7 @@ spec:
   parentRefs:
   - name: lab-gateway
     namespace: nginx-gateway
+    sectionName: https
   hostnames:
   - "homeassistant.lab.lkwt.dev"
   rules:
