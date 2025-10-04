@@ -111,10 +111,12 @@ spec:
   selector:
     app: home-assistant
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 8123
       targetPort: 8123
-    - protocol: TCP
+    - name: hue-api
+      protocol: TCP
       port: 80
       targetPort: 80
 ---
