@@ -56,7 +56,7 @@ data:
     [[inputs.http_response]]
       urls = [
         "http://jellyfin.jellyfin.svc.cluster.local:8096/",
-        "http://home-assistant.home-assistant.svc.cluster.local:8123/api/",
+        "http://home-assistant.home-assistant.svc.cluster.local:8123/",
         "http://grafana:80/api/health"
       ]
       response_timeout = "5s"
