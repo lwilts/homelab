@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agile-dashboard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agile-dashboard-web
+  namespace: agile-dashboard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agile-dashboard-web
+  template:
+    metadata:
+      labels:
+        app: agile-dashboard-web
+    spec:
+      containers:
+      - name: agile-dashboard-web
+        image: ghcr.io/lwilts/agile-dashboard-web:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: TZ
+          value: "Europe/London"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agile-dashboard-web
+  namespace: agile-dashboard
+spec:
+  selector:
+    app: agile-dashboard-web
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agile-dashboard-web
+  namespace: agile-dashboard
+spec:
+  parentRefs:
+  - name: lab-gateway
+    namespace: nginx-gateway
+  hostnames:
+  - "agile.lab.lkwt.dev"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: agile-dashboard-web
+      port: 80
