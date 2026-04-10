@@ -52,18 +52,16 @@ spec:
         memory: "256Mi"
         cpu: "500m"
 ---
-# Long-lived ServiceAccount token for the Headlamp login screen.
-# On k8s 1.24+ these Secrets are no longer auto-created, so declare one explicitly.
-# Retrieve with:
-#   kubectl -n headlamp get secret headlamp-login-token -o jsonpath='{.data.token}' | base64 -d
-apiVersion: v1
-kind: Secret
-metadata:
-  name: headlamp-login-token
-  namespace: headlamp
-  annotations:
-    kubernetes.io/service-account.name: headlamp
-type: kubernetes.io/service-account-token
+# Login token for the Headlamp UI.
+# Generate a 1-year token for the headlamp ServiceAccount and paste it into
+# Headlamp's login screen:
+#
+#   kubectl -n headlamp create token headlamp --duration=8760h
+#
+# Note: we intentionally do NOT declare a `kubernetes.io/service-account-token`
+# Secret here. On k8s 1.30+ the LegacyServiceAccountTokenCleaner controller
+# garbage-collects manually-created SA token Secrets, so the modern
+# `kubectl create token` TokenRequest API is the right flow.
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
