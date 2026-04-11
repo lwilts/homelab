@@ -162,6 +162,11 @@ spec:
       labels:
         app: searxng
     spec:
+      # Disable legacy Docker-link-style env var injection. Without this, the
+      # searxng Service in this namespace causes k8s to set SEARXNG_PORT to
+      # `tcp://<clusterIP>:8080`, which SearXNG's granian launcher then tries
+      # to parse as an integer port and crashes.
+      enableServiceLinks: false
       initContainers:
       # Substitutes the secret_key placeholder in settings.yml with the value
       # from the Secret, and copies limiter.toml verbatim, into a shared
@@ -195,10 +200,6 @@ spec:
         env:
           - name: SEARXNG_BASE_URL
             value: "https://search.lab.lkwt.dev/"
-          - name: UWSGI_WORKERS
-            value: "2"
-          - name: UWSGI_THREADS
-            value: "4"
         volumeMounts:
           - name: config
             mountPath: /etc/searxng
