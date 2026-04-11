@@ -1,0 +1,266 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: searxng
+---
+# SearXNG secret key. Rotate with `openssl rand -hex 32` and `kubectl apply`.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: searxng
+  namespace: searxng
+type: Opaque
+stringData:
+  secret-key: "4bc3fc9f7f86f5f6098384d71460b4af1f38daa59f13eff3c2189bdb67664130"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-config
+  namespace: searxng
+data:
+  settings.yml: |
+    use_default_settings: true
+
+    general:
+      instance_name: "Homelab Search"
+      privacypolicy_url: false
+      donation_url: false
+      contact_url: false
+      enable_metrics: false
+
+    server:
+      base_url: https://search.lab.lkwt.dev/
+      limiter: true
+      public_instance: false
+      secret_key: "__SEARXNG_SECRET__"
+      image_proxy: true
+      method: "POST"
+      bind_address: "0.0.0.0"
+      port: 8080
+      default_http_headers:
+        X-Content-Type-Options: nosniff
+        X-Download-Options: noopen
+        X-Robots-Tag: noindex, nofollow
+        Referrer-Policy: no-referrer
+
+    redis:
+      url: redis://searxng-redis:6379/0
+
+    search:
+      safe_search: 0
+      autocomplete: "duckduckgo"
+      default_lang: "en"
+      ban_time_on_fail: 5
+      max_ban_time_on_fail: 120
+      formats:
+        - html
+        - json
+
+    ui:
+      default_theme: simple
+      infinite_scroll: true
+
+  limiter.toml: |
+    # Trust X-Forwarded-For from the nginx-gateway in front of us,
+    # take the right-most IP as the real client.
+    [real_ip]
+    x_for = 1
+    ipv4_prefix = 32
+    ipv6_prefix = 56
+
+    [botdetection.ip_limit]
+    filter_link_local = false
+    link_token = false
+
+    [botdetection.ip_lists]
+    # Pass through all RFC1918 LAN traffic (openclaw and any other on-cluster
+    # or on-LAN caller) without rate limiting. The limiter still applies to
+    # anything outside these ranges.
+    pass_ip = [
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+    ]
+---
+# Redis - cache + limiter backend. In-memory, no persistence, LRU eviction.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: searxng-redis
+  namespace: searxng
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: searxng-redis
+  template:
+    metadata:
+      labels:
+        app: searxng-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        args:
+          - redis-server
+          - --save
+          - ""
+          - --appendonly
+          - "no"
+          - --maxmemory
+          - "64mb"
+          - --maxmemory-policy
+          - "allkeys-lru"
+        ports:
+        - containerPort: 6379
+          name: redis
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: searxng-redis
+  namespace: searxng
+spec:
+  selector:
+    app: searxng-redis
+  ports:
+    - name: redis
+      protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: searxng
+  namespace: searxng
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: searxng
+  template:
+    metadata:
+      labels:
+        app: searxng
+    spec:
+      initContainers:
+      # Substitutes the secret_key placeholder in settings.yml with the value
+      # from the Secret, and copies limiter.toml verbatim, into a shared
+      # emptyDir that SearXNG reads from /etc/searxng.
+      - name: config-init
+        image: busybox:1.35
+        command: ["sh", "-c"]
+        args:
+          - |
+            set -eu
+            sed "s|__SEARXNG_SECRET__|$SEARXNG_SECRET|g" /templates/settings.yml > /etc/searxng/settings.yml
+            cp /templates/limiter.toml /etc/searxng/limiter.toml
+        env:
+          - name: SEARXNG_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: searxng
+                key: secret-key
+        volumeMounts:
+          - name: templates
+            mountPath: /templates
+          - name: config
+            mountPath: /etc/searxng
+      containers:
+      - name: searxng
+        image: searxng/searxng:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+          - name: SEARXNG_BASE_URL
+            value: "https://search.lab.lkwt.dev/"
+          - name: UWSGI_WORKERS
+            value: "2"
+          - name: UWSGI_THREADS
+            value: "4"
+        volumeMounts:
+          - name: config
+            mountPath: /etc/searxng
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+        - name: templates
+          configMap:
+            name: searxng-config
+        - name: config
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: searxng
+  namespace: searxng
+spec:
+  selector:
+    app: searxng
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: searxng
+  namespace: searxng
+spec:
+  parentRefs:
+    - name: lab-gateway
+      namespace: nginx-gateway
+      sectionName: https
+  hostnames:
+    - "search.lab.lkwt.dev"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: searxng
+          port: 8080
