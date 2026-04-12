@@ -141,4 +141,4 @@ spec:
             value: /
       backendRefs:
         - name: vmsingle-victoria-metrics-k8s-stack
-          port: 8429
+          port: 8428
