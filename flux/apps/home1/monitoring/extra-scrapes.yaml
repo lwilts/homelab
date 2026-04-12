@@ -1,0 +1,20 @@
+# Scrape cert-manager metrics for certificate expiry tracking.
+# Gives certmanager_certificate_expiration_timestamp_seconds in Grafana.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: cert-manager
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+# TODO: If Home Assistant's Prometheus integration is enabled, add a
+# VMServiceScrape for home-assistant namespace targeting port 8123 at
+# /api/prometheus. This would give entity state metrics directly.

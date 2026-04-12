@@ -16,12 +16,3 @@ spec:
   interval: 5m0s
   type: oci
   url: oci://ghcr.io/nginxinc/charts
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: kubernetes-dashboard
-  namespace: flux-system
-spec:
-  interval: 1h
-  url: https://kubernetes.github.io/dashboard/
