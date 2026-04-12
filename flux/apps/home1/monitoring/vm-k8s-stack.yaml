@@ -80,12 +80,6 @@ spec:
           enabled: true
           label: grafana_dashboard
           searchNamespace: ALL
-      dashboards:
-        default:
-          node-exporter:
-            gnetId: 1860
-            revision: 37
-            datasource: VictoriaMetrics
       service:
         type: ClusterIP
         port: 80
