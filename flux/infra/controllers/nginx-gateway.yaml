@@ -13,6 +13,15 @@ spec:
   dependsOn:
     - name: cert-manager
       namespace: cert-manager
+  install:
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    cleanupOnFail: true
+    remediation:
+      retries: 3
   chart:
     spec:
       chart: nginx-gateway-fabric
