@@ -8,3 +8,4 @@ resources:
   - vm-k8s-stack.yaml
   - blackbox-exporter.yaml
   - speedtest.yaml
+  - extra-scrapes.yaml
