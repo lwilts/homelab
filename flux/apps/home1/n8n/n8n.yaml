@@ -1,0 +1,88 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: n8n
+  namespace: n8n
+spec:
+  interval: 30m
+  dependsOn:
+    - name: postgresql
+      namespace: n8n
+  chart:
+    spec:
+      chart: n8n
+      version: "2.0.1"
+      sourceRef:
+        kind: HelmRepository
+        name: open-8gears
+        namespace: n8n
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    main:
+      config:
+        db:
+          type: postgresdb
+          postgresdb:
+            host: postgresql.n8n.svc.cluster.local
+            port: 5432
+            database: n8n
+            user: n8n
+        executions:
+          pruneData: "true"
+          pruneDataMaxAge: 72
+      extraEnv:
+        N8N_ENCRYPTION_KEY:
+          valueFrom:
+            secretKeyRef:
+              name: n8n-secrets
+              key: N8N_ENCRYPTION_KEY
+        DB_POSTGRESDB_PASSWORD:
+          valueFrom:
+            secretKeyRef:
+              name: n8n-secrets
+              key: DB_POSTGRESDB_PASSWORD
+        WEBHOOK_URL:
+          value: "https://n8n.lab.lkwt.dev"
+        N8N_EDITOR_BASE_URL:
+          value: "https://n8n.lab.lkwt.dev"
+        GENERIC_TIMEZONE:
+          value: "Europe/London"
+      persistence:
+        enabled: true
+        type: dynamic
+        storageClass: local-path
+        size: 2Gi
+      resources:
+        requests:
+          memory: "256Mi"
+          cpu: "200m"
+        limits:
+          memory: "1Gi"
+          cpu: "1000m"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: n8n
+  namespace: n8n
+spec:
+  parentRefs:
+  - name: lab-gateway
+    namespace: nginx-gateway
+    sectionName: https
+  hostnames:
+  - "n8n.lab.lkwt.dev"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: n8n
+      port: 80

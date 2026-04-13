@@ -1,0 +1,17 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: open-8gears
+  namespace: n8n
+spec:
+  interval: 24h
+  url: https://8gears.container-registry.com/chartmuseum/
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: n8n
+spec:
+  interval: 24h
+  url: https://charts.bitnami.com/bitnami

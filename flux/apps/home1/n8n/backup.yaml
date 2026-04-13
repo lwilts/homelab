@@ -1,0 +1,95 @@
+# NFS PV/PVC for n8n backups on TrueNAS
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: n8n-backup-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs-backup
+  nfs:
+    server: nas.lab
+    path: /mnt/red6/k8s-backup
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: n8n-backup-pvc
+  namespace: n8n
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-backup
+  resources:
+    requests:
+      storage: 10Gi
+  volumeName: n8n-backup-pv
+---
+# Nightly pg_dump of the n8n database to NFS
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: n8n-db-backup
+  namespace: n8n
+spec:
+  schedule: "30 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: pg-dump
+            image: bitnami/postgresql:17
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              BACKUP_DIR="/backups/n8n"
+              mkdir -p "$BACKUP_DIR"
+              DATE=$(date +%Y%m%d-%H%M%S)
+              BACKUP_FILE="${BACKUP_DIR}/n8n-${DATE}.sql.gz"
+
+              echo "Starting n8n database backup at $(date)"
+              PGPASSWORD="$DB_PASSWORD" pg_dump \
+                -h postgresql.n8n.svc.cluster.local \
+                -U n8n \
+                -d n8n \
+                --no-owner \
+                --no-privileges \
+                | gzip > "$BACKUP_FILE"
+
+              echo "Backup written to $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+
+              # Keep last 30 days of backups
+              find "$BACKUP_DIR" -name "n8n-*.sql.gz" -mtime +30 -delete
+              echo "Cleanup complete. Remaining backups:"
+              ls -lh "$BACKUP_DIR"/n8n-*.sql.gz 2>/dev/null || echo "  (none)"
+              echo "Backup finished at $(date)"
+            env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secrets
+                  key: DB_POSTGRESDB_PASSWORD
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: n8n-backup-pvc
