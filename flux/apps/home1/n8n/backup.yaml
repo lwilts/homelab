@@ -46,9 +46,9 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: pg-dump
-            image: bitnami/postgresql:17
+            image: postgres:17-alpine
             command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - |
               set -e

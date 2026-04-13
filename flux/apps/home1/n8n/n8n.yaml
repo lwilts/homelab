@@ -5,9 +5,6 @@ metadata:
   namespace: n8n
 spec:
   interval: 30m
-  dependsOn:
-    - name: postgresql
-      namespace: n8n
   chart:
     spec:
       chart: n8n
