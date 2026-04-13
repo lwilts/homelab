@@ -21,6 +21,8 @@ spec:
     remediation:
       retries: 3
   values:
+    image:
+      tag: 17
     auth:
       database: n8n
       username: n8n
