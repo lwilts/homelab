@@ -8,11 +8,12 @@ spec:
   type: oci
   url: oci://8gears.container-registry.com/library
 ---
-apiVersion: source.toolkit.fluxcd.io/v1
+apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
 metadata:
   name: bitnami
   namespace: n8n
 spec:
   interval: 24h
-  url: https://charts.bitnami.com/bitnami
+  type: oci
+  url: oci://registry-1.docker.io/bitnamicharts
