@@ -76,6 +76,17 @@ data:
         echo "Warning: Jellyfin data not found"
     fi
 
+    # Backup Music Assistant
+    echo "Backing up Music Assistant..."
+    MA_DIR=$(find /source -name "*music-assistant*" -type d | head -1)
+    if [ -n "$MA_DIR" ] && [ -d "$MA_DIR" ]; then
+        tar -czf "$BACKUP_DIR/$DATE/music-assistant-$DATE.tar.gz" -C "$MA_DIR" .
+        echo "Music Assistant backup completed: music-assistant-$DATE.tar.gz"
+        echo "Backed up from: $MA_DIR"
+    else
+        echo "Warning: Music Assistant data not found"
+    fi
+
     # Create backup manifest
     cat > "$BACKUP_DIR/$DATE/manifest.yaml" << EOF
     backup_date: $DATE
@@ -144,6 +155,18 @@ data:
             echo "Jellyfin restored to: $JF_TARGET_DIR"
         else
             echo "Warning: Jellyfin target directory not found"
+        fi
+    fi
+
+    # Restore Music Assistant
+    if ls "$RESTORE_PATH"/music-assistant-*.tar.gz 1> /dev/null 2>&1; then
+        echo "Restoring Music Assistant..."
+        MA_TARGET_DIR=$(find /target -name "*music-assistant*" -type d | head -1)
+        if [ -n "$MA_TARGET_DIR" ] && [ -d "$MA_TARGET_DIR" ]; then
+            tar -xzf "$RESTORE_PATH"/music-assistant-*.tar.gz -C "$MA_TARGET_DIR"
+            echo "Music Assistant restored to: $MA_TARGET_DIR"
+        else
+            echo "Warning: Music Assistant target directory not found"
         fi
     fi
 
