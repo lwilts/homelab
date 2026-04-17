@@ -1,0 +1,241 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: homepage
+---
+# RBAC for Kubernetes service discovery (live pod status widgets)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: homepage
+  namespace: homepage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: homepage
+rules:
+  - apiGroups: [""]
+    resources: [namespaces, pods, nodes, services, endpoints, secrets]
+    verbs: [get, list]
+  - apiGroups: [extensions, networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources: [httproutes, gateways]
+    verbs: [get, list]
+  - apiGroups: [metrics.k8s.io]
+    resources: [nodes, pods]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: homepage
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: homepage
+subjects:
+  - kind: ServiceAccount
+    name: homepage
+    namespace: homepage
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homepage-config
+  namespace: homepage
+data:
+  settings.yaml: |
+    title: home1
+    favicon: https://kubernetes.io/images/favicon.png
+    theme: dark
+    color: slate
+    headerStyle: boxed
+    layout:
+      Home & Media:
+        style: row
+        columns: 3
+      Monitoring:
+        style: row
+        columns: 3
+      Tools:
+        style: row
+        columns: 4
+    providers:
+      kubernetes:
+        mode: cluster
+
+  widgets.yaml: |
+    - kubernetes:
+        cluster:
+          show: true
+          cpu: true
+          memory: true
+          showLabel: true
+          label: home1
+        nodes:
+          show: false
+
+  services.yaml: |
+    - Home & Media:
+      - Home Assistant:
+          href: https://homeassistant.lab.lkwt.dev
+          description: Home automation
+          icon: home-assistant.svg
+          namespace: home-assistant
+          app: home-assistant
+      - Jellyfin:
+          href: https://jellyfin.lab.lkwt.dev
+          description: Media server
+          icon: jellyfin.svg
+          namespace: jellyfin
+          app: jellyfin
+      - Music Assistant:
+          href: https://music.lab.lkwt.dev
+          description: Music streaming & player control
+          icon: music-assistant.svg
+          namespace: music-assistant
+          app: music-assistant
+
+    - Monitoring:
+      - Grafana:
+          href: https://grafana.lab.lkwt.dev
+          description: Dashboards & visualisation
+          icon: grafana.svg
+          namespace: monitoring
+          app: grafana
+      - VictoriaMetrics:
+          href: https://vmui.lab.lkwt.dev
+          description: Time-series metrics
+          icon: victoriametrics.svg
+          namespace: monitoring
+          app: vmsingle
+      - Speedtest Tracker:
+          href: https://speedtest.lab.lkwt.dev
+          description: ISP speed history
+          icon: speedtest-tracker.svg
+          namespace: monitoring
+          app: speedtest-tracker
+
+    - Tools:
+      - n8n:
+          href: https://n8n.lab.lkwt.dev
+          description: Workflow automation
+          icon: n8n.svg
+          namespace: n8n
+          app: n8n
+      - SearXNG:
+          href: https://search.lab.lkwt.dev
+          description: Privacy-focused search
+          icon: searxng.svg
+          namespace: searxng
+          app: searxng
+      - Headlamp:
+          href: https://k8s.lab.lkwt.dev
+          description: Kubernetes UI
+          icon: kubernetes.svg
+          namespace: headlamp
+          app: headlamp
+      - Kube-Ops-View:
+          href: https://ops.lab.lkwt.dev
+          description: Cluster visualisation
+          icon: kubernetes.svg
+          namespace: kube-ops-view
+          app: kube-ops-view
+
+  bookmarks.yaml: |
+    []
+
+  kubernetes.yaml: |
+    mode: cluster
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homepage
+  namespace: homepage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: homepage
+  template:
+    metadata:
+      labels:
+        app: homepage
+    spec:
+      serviceAccountName: homepage
+      containers:
+      - name: homepage
+        image: ghcr.io/gethomepage/homepage:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: TZ
+          value: "Europe/London"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: homepage-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: homepage
+  namespace: homepage
+spec:
+  selector:
+    app: homepage
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: homepage
+  namespace: homepage
+spec:
+  parentRefs:
+  - name: lab-gateway
+    namespace: nginx-gateway
+    sectionName: https
+  hostnames:
+  - "home.lab.lkwt.dev"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: homepage
+      port: 3000
