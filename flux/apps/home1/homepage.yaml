@@ -167,6 +167,18 @@ spec:
         app: homepage
     spec:
       serviceAccountName: homepage
+      initContainers:
+      - name: copy-config
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - cp /config-ro/* /app/config/
+        volumeMounts:
+        - name: config-ro
+          mountPath: /config-ro
+        - name: config
+          mountPath: /app/config
       containers:
       - name: homepage
         image: ghcr.io/gethomepage/homepage:latest
@@ -201,9 +213,11 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
       volumes:
-      - name: config
+      - name: config-ro
         configMap:
           name: homepage-config
+      - name: config
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
