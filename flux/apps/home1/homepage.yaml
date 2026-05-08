@@ -63,6 +63,9 @@ data:
       Tools:
         style: row
         columns: 4
+      Finance:
+        style: row
+        columns: 4
     providers:
       kubernetes:
         mode: cluster
@@ -144,6 +147,14 @@ data:
           icon: kubernetes.svg
           namespace: kube-ops-view
           app: kube-ops-view
+
+    - Finance:
+      - Amazon Comp Tracker:
+          href: https://comp.lab.lkwt.dev
+          description: Salary, bonus & RSU vest tracker
+          icon: amazon.svg
+          namespace: amazon-comp-tracker
+          app: amazon-comp-tracker
 
   bookmarks.yaml: |
     []
