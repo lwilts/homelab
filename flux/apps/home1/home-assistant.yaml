@@ -55,6 +55,7 @@ spec:
       containers:
       - name: home-assistant
         image: ghcr.io/home-assistant/home-assistant:stable
+        imagePullPolicy: Always
         ports:
         - containerPort: 8123
           name: http
