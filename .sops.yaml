@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: flux/apps/home1/.*\.ya?ml$
+    age: age1fjpzfukaht4c2z2xnsj6k6ghny2tg9m20a8n0anjj9hyk8sxh3msuamjhc

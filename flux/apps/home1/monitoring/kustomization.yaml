@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - helm-repositories.yaml
   - grafana-admin-secret.yaml
+  - alertmanager-config.yaml
   - vm-k8s-stack.yaml
   - blackbox-exporter.yaml
   - speedtest.yaml

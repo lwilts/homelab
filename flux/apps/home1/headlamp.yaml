@@ -3,6 +3,30 @@ kind: Namespace
 metadata:
   name: headlamp
 ---
+# Read-only cluster access for Headlamp UI display. Write operations use a
+# separately generated kubectl token (kubectl -n headlamp create token headlamp --duration=8760h).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: headlamp-read-only
+rules:
+  - apiGroups:
+      - ""
+      - apps
+      - batch
+      - networking.k8s.io
+      - storage.k8s.io
+      - rbac.authorization.k8s.io
+      - gateway.networking.k8s.io
+      - helm.toolkit.fluxcd.io
+      - kustomize.toolkit.fluxcd.io
+      - source.toolkit.fluxcd.io
+    resources: ["*"]
+    verbs: [get, list, watch]
+  - apiGroups: [metrics.k8s.io]
+    resources: [nodes, pods]
+    verbs: [get, list]
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
@@ -36,7 +60,7 @@ spec:
       name: headlamp
     clusterRoleBinding:
       create: true
-      clusterRoleName: cluster-admin
+      clusterRoleName: headlamp-read-only
     service:
       type: ClusterIP
       port: 80

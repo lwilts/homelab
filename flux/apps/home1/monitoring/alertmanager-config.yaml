@@ -1,0 +1,39 @@
+# Alertmanager receiver config — stored as a Secret so the webhook URL stays
+# out of plaintext. Encrypt this file with SOPS once age keys are configured.
+#
+# To set your Discord webhook URL:
+#   kubectl -n monitoring create secret generic alertmanager-config \
+#     --from-literal=alertmanager.yaml="$(sed 's|<DISCORD_WEBHOOK_URL>|https://discord.com/api/webhooks/...|' \
+#       flux/apps/home1/monitoring/alertmanager-config.yaml | yq .stringData.alertmanager.yaml)"
+#
+# Or simply edit the placeholder below and apply via Flux after SOPS encryption.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: discord
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      routes:
+        - matchers:
+            - alertname = Watchdog
+          receiver: blackhole
+    receivers:
+      - name: discord
+        discord_configs:
+          - webhook_url: "<DISCORD_WEBHOOK_URL>"
+            title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+            message: |
+              {{ range .Alerts }}
+              **{{ .Annotations.summary }}**
+              {{ .Annotations.description }}
+              {{ end }}
+      - name: blackhole

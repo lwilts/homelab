@@ -78,6 +78,8 @@ spec:
           limits:
             memory: "2Gi"
             cpu: "2000m"
+        # privileged: required to access the Zigbee USB dongle at /dev/ttyUSB0.
+        # hostNetwork: required for mDNS/device discovery and Hue bridge API on port 80.
         securityContext:
           privileged: true
         livenessProbe:

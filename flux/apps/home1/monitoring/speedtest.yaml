@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: speedtest-tracker
-          image: lscr.io/linuxserver/speedtest-tracker:latest
+          image: lscr.io/linuxserver/speedtest-tracker:0.21.4
           ports:
             - containerPort: 80
               name: http
@@ -46,6 +46,21 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
       volumes:
         - name: config
           persistentVolumeClaim:

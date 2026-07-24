@@ -43,11 +43,14 @@ spec:
     vmagent:
       enabled: true
 
-    # VMAlert + Alertmanager — default alert rules, no notifier yet
     vmalert:
       enabled: true
     alertmanager:
       enabled: true
+      config:
+        existingSecret:
+          name: alertmanager-config
+          key: alertmanager.yaml
 
     # Curated dashboards and alert rules
     defaultDashboardsEnabled: true
