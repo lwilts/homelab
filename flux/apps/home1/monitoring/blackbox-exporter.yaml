@@ -58,6 +58,7 @@ spec:
     staticConfig:
       targets:
         - https://jellyfin.lab.lkwt.dev
+        - https://photos.lab.lkwt.dev
         - https://grafana.lab.lkwt.dev
         - https://k8s.lab.lkwt.dev
         - https://ops.lab.lkwt.dev

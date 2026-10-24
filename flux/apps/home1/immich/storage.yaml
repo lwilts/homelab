@@ -1,0 +1,80 @@
+# Photo storage lives on TrueNAS (nas.lab), under the "media" share.
+#
+#   /mnt/red6/media/photos/immich          Immich-owned upload library (read/write)
+#   /mnt/red6/media/photos/luke-icloud     \  your own folders, exposed to Immich
+#   /mnt/red6/media/photos/family-photos   /  read-only as External Libraries
+#
+# The media export needs write access (maproot user/group) for the library.
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-library-pv
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  nfs:
+    server: nas.lab
+    path: /mnt/red6/media/photos/immich
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 2Ti
+  volumeName: immich-library-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-external-pv
+spec:
+  capacity:
+    storage: 2Ti
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  mountOptions:
+    - ro
+  nfs:
+    server: nas.lab
+    path: /mnt/red6/media/photos
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-external
+  namespace: immich
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: nfs
+  resources:
+    requests:
+      storage: 2Ti
+  volumeName: immich-external-pv
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-ml-cache
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi

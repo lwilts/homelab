@@ -95,6 +95,12 @@ data:
           icon: jellyfin.svg
           namespace: jellyfin
           app: jellyfin
+      - Immich:
+          href: https://photos.lab.lkwt.dev
+          description: Photos & videos
+          icon: immich.svg
+          namespace: immich
+          app: immich
       - Music Assistant:
           href: https://music.lab.lkwt.dev
           description: Music streaming & player control

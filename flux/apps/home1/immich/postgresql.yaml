@@ -1,0 +1,109 @@
+# The immich-db Secret is deliberately NOT defined here -- this repo is public.
+# Create it by hand before (or right after) Flux creates the namespace:
+#
+#   kubectl create namespace immich --dry-run=client -o yaml | kubectl apply -f -
+#   kubectl -n immich create secret generic immich-db \
+#     --from-literal=password="$(openssl rand -hex 24)"
+#
+# Immich needs VectorChord, so this uses Immich's own Postgres image rather
+# than stock postgres. Tag/digest taken from immich's docker-compose.yml; bump
+# it alongside the Immich release.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-data
+  namespace: immich
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: immich
+spec:
+  serviceName: postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: immich
+        - name: POSTGRES_USER
+          value: immich
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: immich-db
+              key: password
+        - name: POSTGRES_INITDB_ARGS
+          value: "--data-checksums"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: shm
+          mountPath: /dev/shm
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - immich
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - immich
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: postgresql-data
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: immich
+spec:
+  selector:
+    app: postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
