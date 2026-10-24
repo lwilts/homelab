@@ -1,10 +1,9 @@
 # Photo storage lives on TrueNAS (nas.lab), under the "media" share.
 #
-#   /mnt/red6/media/photos/immich          Immich-owned upload library (read/write)
+#   /mnt/red6/immich                       Immich-owned library (read/write); its own
+#                                          dataset + export, see truenas-terraform
 #   /mnt/red6/media/photos/luke-icloud     \  your own folders, exposed to Immich
 #   /mnt/red6/media/photos/family-photos   /  read-only as External Libraries
-#
-# The media export needs write access (maproot user/group) for the library.
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -19,7 +18,7 @@ spec:
   storageClassName: nfs
   nfs:
     server: nas.lab
-    path: /mnt/red6/media/photos/immich
+    path: /mnt/red6/immich
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
